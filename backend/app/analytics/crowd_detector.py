@@ -14,7 +14,6 @@ class CrowdDetector:
         self.clear_after_frames = clear_after_frames
 
         def check(self, tracked_objects):
-
             events = []
 
             person_count = sum(
@@ -31,11 +30,9 @@ class CrowdDetector:
             )
 
             if person_count >= self.threshold:
-
                 self.below_threshold_frames = 0
 
                 if not self.crowd_active:
-
                     self.crowd_active = True
 
                     events.append({
@@ -49,16 +46,13 @@ class CrowdDetector:
                     })
 
             else:
-
                 if self.crowd_active:
-
                     self.below_threshold_frames += 1
 
                     if (
                         self.below_threshold_frames
                         >= self.clear_after_frames
                     ):
-
                         self.crowd_active = False
                         self.below_threshold_frames = 0
 
