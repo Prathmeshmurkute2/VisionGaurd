@@ -13,7 +13,7 @@ class CrowdDetector:
         self.below_threshold_frames = 0
         self.clear_after_frames = clear_after_frames
 
-        def check(self, tracked_objects):
+    def check(self, tracked_objects):
             events = []
 
             person_count = sum(
