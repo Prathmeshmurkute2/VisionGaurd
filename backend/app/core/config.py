@@ -7,13 +7,17 @@ class Settings(BaseSettings):
 
     APP_VERSION: str = "1.0.0"
 
-    VIDEO_SOURCE: str = "backend/app/videos/test.mp4"
+    VIDEO_SOURCE: str = "0"
 
     YOLO_MODEL: str = "yolov8n.pt"
 
     CONFIDENCE_THRESHOLD: float = 0.5
 
     DATABASE_URL: str
+
+    PROCESSING_FPS: int = 10
+
+    CROWD_THRESHOLD: int = 2
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -9,7 +9,7 @@ class Event(BaseModel):
         from_attributes=True
     )
 
-    event_id: str
+    event_id: int | None = None
     event_type: str
     track_id: int
     camera_id: str

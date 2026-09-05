@@ -20,30 +20,10 @@ class EventService:
             event=event,
         )
 
-        # 2. Convert database model to API schema
+        # 2. Convert DB model to response schema
         event_response = EventResponse.model_validate(
             db_event
         )
-
-        # 3. Broadcast only after successful DB commit
-        # EventService is synchronous, so schedule the
-        # async WebSocket broadcast on the running event loop.
-        import asyncio
-
-        try:
-            loop = asyncio.get_running_loop()
-
-            loop.create_task(
-                event_publisher.publish_event(
-                    "event_created",
-                    event_response.model_dump(
-                        mode="json"
-                    ),
-                )
-            )
-
-        except RuntimeError:
-            pass
 
         return event_response
 

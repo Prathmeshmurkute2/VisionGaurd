@@ -7,6 +7,9 @@ from app.schemas.bounding_box import BoundingBox
 class Tracker:
     """
     Handles multi-object tracking using ByteTrack.
+
+    Currently tracks only persons because the surveillance
+    analytics are designed around human movement.
     """
 
     def __init__(self):
@@ -31,6 +34,13 @@ class Tracker:
             for box in result.boxes:
 
                 class_id = int(box.cls.item())
+                class_name = result.names[class_id]
+
+                # -----------------------------------------
+                # Track only persons
+                # -----------------------------------------
+                if class_name != "person":
+                    continue
 
                 coordinates = box.xyxy[0].tolist()
 
@@ -43,7 +53,7 @@ class Tracker:
 
                 detection = Detection(
                     class_id=class_id,
-                    class_name=result.names[class_id],
+                    class_name=class_name,
                     confidence=float(box.conf.item()),
                     bbox=bbox,
                 )
