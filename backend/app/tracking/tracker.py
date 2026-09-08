@@ -2,15 +2,20 @@ from app.detection.yolo import detector
 from app.schemas.detection import Detection
 from app.schemas.tracked_object import TrackedObject
 from app.schemas.bounding_box import BoundingBox
+from app.core.constants import THREAT_OBJECT_CLASSES
 
 
 class Tracker:
     """
     Handles multi-object tracking using ByteTrack.
 
-    Currently tracks only persons because the surveillance
-    analytics are designed around human movement.
+    Tracks persons (for movement/zone/crowd analytics) plus any
+    threat-object classes the loaded model knows about (see
+    THREAT_OBJECT_CLASSES) - which requires a model fine-tuned for
+    weapon detection, since the default COCO weights don't include them.
     """
+
+    TRACKED_CLASSES = {"person"} | THREAT_OBJECT_CLASSES
 
     def __init__(self):
         self.model = detector.get_model()
@@ -37,9 +42,9 @@ class Tracker:
                 class_name = result.names[class_id]
 
                 # -----------------------------------------
-                # Track only persons
+                # Track only persons and threat objects
                 # -----------------------------------------
-                if class_name != "person":
+                if class_name not in self.TRACKED_CLASSES:
                     continue
 
                 coordinates = box.xyxy[0].tolist()

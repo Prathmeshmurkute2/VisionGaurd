@@ -10,6 +10,9 @@ from app.api.routes.health import router as health_router
 from app.api.routes.metrics import router as metrics_router
 from app.api.routes.websocket import router as websocket_router
 from app.api.routes.demo import router as demo_router
+from app.api.routes.auth import router as auth_router
+from app.api.routes.zones import router as zone_router
+from app.websocket.publisher import event_publisher
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -31,6 +34,7 @@ app.add_middleware(LoggingMiddleware)
 register_exception_handlers(app)
 
 app.include_router(demo_router)
+app.include_router(auth_router)
 app.include_router(websocket_router)
 app.include_router(metrics_router)
 app.include_router(health_router)
@@ -38,6 +42,13 @@ app.include_router(camera_router)
 app.include_router(dashboard_router)
 
 app.include_router(event_router)
+app.include_router(zone_router)
+
+@app.on_event("startup")
+async def bind_event_publisher_loop():
+    import asyncio
+
+    event_publisher.bind_loop(asyncio.get_running_loop())
 
 @app.get("/")
 def root():

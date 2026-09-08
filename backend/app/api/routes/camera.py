@@ -1,6 +1,10 @@
-from fastapi import APIRouter
+from typing import Annotated
+
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
+from app.auth.dependencies import get_current_user
+from app.database.models import UserModel
 from app.services.video_service import video_service
 
 router = APIRouter(
@@ -10,7 +14,9 @@ router = APIRouter(
 
 
 @router.post("/start")
-def start_camera():
+def start_camera(
+    current_user: Annotated[UserModel, Depends(get_current_user)],
+):
 
     video_service.start_camera()
 
@@ -21,7 +27,9 @@ def start_camera():
 
 
 @router.post("/stop")
-def stop_camera():
+def stop_camera(
+    current_user: Annotated[UserModel, Depends(get_current_user)],
+):
 
     video_service.stop_camera()
 

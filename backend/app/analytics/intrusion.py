@@ -1,35 +1,72 @@
+import cv2
+import numpy as np
+
+
 class IntrusionDetector:
     """
     Detects when a tracked person enters a restricted zone.
 
-    Uses hysteresis to prevent duplicate events caused by
-    small movements around the zone boundary.
+    The zone is an arbitrary polygon (list of (x, y) pixel points),
+    not just a rectangle - drawn by the user on the live feed and
+    persisted via the /zones API. If no zone is configured, this
+    detector is a no-op (returns no events) rather than erroring.
+
+    A grace period is used because ByteTrack can temporarily
+    lose a tracked object for a few frames.
     """
 
-    def __init__(
-        self,
-        zone,
-        entry_margin=10,
-        exit_margin=30,
-        max_missing_frames=50,
-    ):
-
-        self.zone = zone
-
-        self.entry_margin = entry_margin
-        self.exit_margin = exit_margin
+    def __init__(self, zone_points=None, max_missing_frames=15):
 
         self.max_missing_frames = max_missing_frames
 
-        # Track IDs currently considered inside
+        # Tracks currently inside the restricted zone
         self.inside_tracks = set()
 
-        # Consecutive missing frames
+        # Number of consecutive frames each track has been missing
         self.missing_frames = {}
+
+        self._polygon = None
+        self.set_zone(zone_points)
+
+    def set_zone(self, zone_points):
+        """
+        `zone_points` is a list of (x, y) pixel tuples, or None to
+        disable zone checking entirely. Called both at startup and
+        live, whenever the zone is edited/saved in the UI.
+        """
+
+        if zone_points and len(zone_points) >= 3:
+            self._polygon = np.array(zone_points, dtype=np.int32)
+        else:
+            self._polygon = None
+
+        # A new/changed zone invalidates any in-progress tracking
+        # state from the old shape.
+        self.inside_tracks.clear()
+        self.missing_frames.clear()
+
+    def has_zone(self):
+        return self._polygon is not None
+
+    @property
+    def zone_points(self):
+        """
+        The current zone polygon as a list of (x, y) pixel points,
+        or None if no zone is configured. Used by the frame drawing
+        code to overlay the zone on the live stream.
+        """
+
+        if self._polygon is None:
+            return None
+
+        return self._polygon.tolist()
 
     def check(self, tracked_objects):
 
         events = []
+
+        if self._polygon is None:
+            return events
 
         current_track_ids = set()
 
@@ -37,71 +74,60 @@ class IntrusionDetector:
 
             track_id = tracked_object.track_id
 
-            # Only persons
-            if (
-                tracked_object.detection.class_name
-                != "person"
-            ):
+            # Only detect persons
+            if tracked_object.detection.class_name != "person":
                 continue
 
             current_track_ids.add(track_id)
 
-            # Track is visible
+            # Track is visible again
             self.missing_frames[track_id] = 0
 
             center_x, center_y = (
                 tracked_object.detection.bbox.center
             )
 
-            # --------------------------------
-            # Already inside?
-            # --------------------------------
-
-            if track_id in self.inside_tracks:
-
-                # Only remove the track when it has
-                # clearly left the larger exit zone.
-                if not self.is_inside_exit_zone(
-                    center_x,
-                    center_y,
-                ):
-
-                    self.inside_tracks.remove(
-                        track_id
-                    )
-
-                    self.missing_frames.pop(
-                        track_id,
-                        None,
-                    )
-
-                continue
-
-            # --------------------------------
-            # Not inside yet
-            # --------------------------------
-
-            if self.is_inside_entry_zone(
+            inside = self.is_inside(
                 center_x,
                 center_y,
+            )
+
+            # --------------------------------
+            # Person entered restricted zone
+            # --------------------------------
+
+            if (
+                inside
+                and track_id not in self.inside_tracks
             ):
 
-                self.inside_tracks.add(
-                    track_id
-                )
+                self.inside_tracks.add(track_id)
 
                 events.append({
                     "track_id": track_id,
                     "event_type": "intrusion",
                     "severity": "CRITICAL",
-                    "message": (
-                        "Person entered "
-                        "restricted zone"
-                    ),
+                    "message": "Person entered restricted zone",
                 })
 
+            # --------------------------------
+            # Person left restricted zone
+            # --------------------------------
+
+            elif (
+                not inside
+                and track_id in self.inside_tracks
+            ):
+
+                self.inside_tracks.remove(track_id)
+
+                self.missing_frames.pop(
+                    track_id,
+                    None,
+                )
+
         # --------------------------------
-        # Handle missing tracks
+        # Handle temporarily missing tracks
         # --------------------------------
 
         missing_tracks = (
@@ -111,12 +137,12 @@ class IntrusionDetector:
         for track_id in missing_tracks:
 
             self.missing_frames[track_id] = (
-                self.missing_frames.get(
-                    track_id,
-                    0,
-                ) + 1
+                self.missing_frames.get(track_id, 0)
+                + 1
             )
 
+            # Only forget the track after the
+            # grace period has expired.
             if (
                 self.missing_frames[track_id]
                 >= self.max_missing_frames
@@ -133,31 +159,24 @@ class IntrusionDetector:
 
         return events
 
-    def is_inside_entry_zone(self, x, y):
+    def is_inside(self, x, y):
 
-        x1, y1, x2, y2 = self.zone
+        if self._polygon is None:
+            return False
 
-        margin = self.entry_margin
-
-        return (
-            x1 + margin <= x <= x2 - margin
-            and
-            y1 + margin <= y <= y2 - margin
+        result = cv2.pointPolygonTest(
+            self._polygon,
+            (float(x), float(y)),
+            False,
         )
 
-    def is_inside_exit_zone(self, x, y):
-
-        x1, y1, x2, y2 = self.zone
-
-        margin = self.exit_margin
-
-        return (
-            x1 - margin <= x <= x2 + margin
-            and
-            y1 - margin <= y <= y2 + margin
-        )
+        return result >= 0
 
     def reset(self):
+        """
+        Clears all tracking state.
+        Called when the camera starts a new session.
+        """
 
         self.inside_tracks.clear()
         self.missing_frames.clear()

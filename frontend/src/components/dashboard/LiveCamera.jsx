@@ -6,7 +6,9 @@ import {
     Box,
 } from "@mui/material";
 
-const API_URL = "http://127.0.0.1:8000";
+import api from "../../api/axios";
+
+const API_URL = import.meta.env.VITE_API_BASE_URL;
 
 export default function LiveCamera() {
 
@@ -25,23 +27,13 @@ export default function LiveCamera() {
 
             try {
 
-                const response = await fetch(
-                    `${API_URL}/camera/status`
-                );
+                const response = await api.get("/camera/status");
 
-                if (!response.ok) {
-                    throw new Error(
-                        "Failed to fetch camera status"
-                    );
-                }
-
-                const data = await response.json();
-
-                setRunning(data.running);
+                setRunning(response.data.running);
 
                 // If backend is already running,
                 // create a fresh stream URL.
-                if (data.running) {
+                if (response.data.running) {
                     setStreamKey(Date.now());
                 }
 
@@ -70,18 +62,7 @@ export default function LiveCamera() {
 
         try {
 
-            const response = await fetch(
-                `${API_URL}/camera/start`,
-                {
-                    method: "POST",
-                }
-            );
-
-            if (!response.ok) {
-                throw new Error(
-                    "Failed to start camera"
-                );
-            }
+            await api.post("/camera/start");
 
             setRunning(true);
 
@@ -112,18 +93,7 @@ export default function LiveCamera() {
 
         try {
 
-            const response = await fetch(
-                `${API_URL}/camera/stop`,
-                {
-                    method: "POST",
-                }
-            );
-
-            if (!response.ok) {
-                throw new Error(
-                    "Failed to stop camera"
-                );
-            }
+            await api.post("/camera/stop");
 
             setRunning(false);
 
@@ -211,6 +181,9 @@ export default function LiveCamera() {
             {/* -------------------------------- */}
             {/* Camera stream */}
             {/* -------------------------------- */}
+            {/* Note: MJPEG <img> streams can't carry an Authorization
+                header, so /camera/stream is intentionally left open
+                on the backend rather than gated behind a JWT. */}
 
             {running && streamKey ? (
 
