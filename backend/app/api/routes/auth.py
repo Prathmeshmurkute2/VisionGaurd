@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
@@ -46,6 +47,21 @@ def login(
     return ApiResponse(
         message="Login successful.",
         data=token,
+    )
+
+@router.post("/token")
+def token(
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    db: Annotated[Session, Depends(get_db)],
+):
+    request = LoginRequest(
+        username=form_data.username,
+        password=form_data.password,
+    )
+
+    return auth_service.login(
+        db=db,
+        request=request,
     )
 
 

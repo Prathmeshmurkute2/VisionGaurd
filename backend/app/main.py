@@ -13,6 +13,9 @@ from app.api.routes.demo import router as demo_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.zones import router as zone_router
 from app.websocket.publisher import event_publisher
+from app.database.base import Base
+from app.database.database import engine
+from app.database.models import user, event, zone
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -47,6 +50,8 @@ app.include_router(zone_router)
 @app.on_event("startup")
 async def bind_event_publisher_loop():
     import asyncio
+
+    Base.metadata.create_all(bind=engine)
 
     event_publisher.bind_loop(asyncio.get_running_loop())
 

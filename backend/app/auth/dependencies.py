@@ -10,7 +10,7 @@ from app.database.models import UserModel
 from app.exceptions.auth import InvalidTokenException
 from app.repositories.user_repository import user_repository
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
 
 def get_current_user(
